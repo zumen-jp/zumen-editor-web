@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.open-next/
+.wrangler/
+out/
+dist/
+coverage/
+public/assets/wasm/
+.env
+.env.local
+.env.*.local
+.dev.vars
+*.tsbuildinfo
+next-env.d.ts

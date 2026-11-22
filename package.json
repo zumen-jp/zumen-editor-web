@@ -1,0 +1,60 @@
+{
+  "name": "zumen-editor-web",
+  "version": "0.1.0",
+  "description": "Chrome ブラウザ完結型の CAD・図面 AI エディター（zumen WASM + WebGPU + Sign in with ChatGPT + OpenAI Agents SDK）",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "sync:assets": "node scripts/sync-assets.mjs",
+    "dev": "npm run sync:assets && next dev --hostname 127.0.0.1 --port 24120",
+    "build": "npm run sync:assets && next build",
+    "start": "next start --hostname 127.0.0.1 --port 24120",
+    "cf:build": "npm run sync:assets && opennextjs-cloudflare build",
+    "cf:preview": "npm run cf:build && wrangler dev --port 24121",
+    "cf:deploy": "npm run cf:build && wrangler deploy",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "next typegen && tsc --noEmit --incremental false",
+    "test": "node --import tsx --test \"tests/*.test.ts\"",
+    "check": "npm run lint && npm run typecheck && npm run test"
+  },
+  "dependencies": {
+    "@codemirror/lang-javascript": "6.2.5",
+    "@codemirror/lang-json": "6.0.2",
+    "@codemirror/lang-markdown": "6.5.2",
+    "@codemirror/lang-xml": "6.1.0",
+    "@codemirror/language": "6.13.1",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
+    "@openai/agents": "0.22.0",
+    "@openai/auth": "0.1.0",
+    "@openai/auth-react": "0.1.0",
+    "@opennextjs/cloudflare": "1.20.18",
+    "@zumen-jp/react": "0.4.0",
+    "@zumen-jp/view2d": "0.4.0",
+    "@zumen-jp/view3d": "0.4.0",
+    "@zumen-jp/zumen": "0.4.0",
+    "codemirror": "6.0.2",
+    "lucide-react": "1.71.0",
+    "next": "16.4.6",
+    "openai": "7.62.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "three": "0.187.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "wrangler": "4.166.0"
+  }
+}

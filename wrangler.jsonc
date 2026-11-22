@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zumen-editor-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+    "run_worker_first": false
+  },
+  "routes": [
+    {
+      "pattern": "editor.zumen.dev",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "APP_ORIGIN": "https://editor.zumen.dev",
+    "OPENAI_SIWC_AGENT_NAME": "zumen-editor-web",
+    "OPENAI_SIWC_SCOPES": "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct",
+    "OPENAI_SIWC_ISSUER": "https://auth.openai.com",
+    "OPENAI_API_BASE_URL": "https://api.openai.com/v1"
+  }
+}

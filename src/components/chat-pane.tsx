@@ -145,9 +145,9 @@ export function ChatPane({
             </p>
             <p style={{ margin: "0 0 8px", fontSize: 12.5 }}>例:</p>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12 }}>
-              <li>「sample-plan.dxf のレイヤ一覧と要素数をまとめて」</li>
+              <li>「A-01_1F平面図.dxf の各室と建具符号を 仕上表・建具表.csv と照合して」</li>
               <li>「CAD製図基準でチェックして、直せる指摘の変更案を出して」</li>
-              <li>「中央の円を X+500 移動する変更案を作って」</li>
+              <li>「応接室の円形テーブルを X+350 移動する変更案を作って」</li>
             </ul>
             {auth.mode === "none" && (
               <div style={{ marginTop: 12 }}>

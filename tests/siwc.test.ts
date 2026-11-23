@@ -44,8 +44,9 @@ test("AES-256-GCM Cookie 暗号化の往復・改ざん拒否・用途分離", a
   const wrongSecret = await unsealJson(sealed, `${TEST_SECRET}x`, "siwc-session");
   assert.equal(wrongSecret, null);
 
-  // 1 文字改ざんで復号不可
-  const tampered = `${sealed.slice(0, -1)}${sealed.endsWith("A") ? "B" : "A"}`;
+  // 1 文字改ざん（パディングビットでない認証タグ位置）で復号不可
+  const idx = sealed.length - 5;
+  const tampered = `${sealed.slice(0, idx)}${sealed[idx] === "A" ? "B" : "A"}${sealed.slice(idx + 1)}`;
   assert.equal(await unsealJson(tampered, TEST_SECRET, "siwc-session"), null);
 });
 

@@ -106,8 +106,13 @@ export function TopBar({
           <span>{workspaceKind === "fsa" ? `ローカル: ${workspaceName}` : "OPFS 一時領域"}</span>
         </button>
 
-        <button type="button" className="tb-btn" onClick={onCreateSampleDxf}>
-          <span>+ サンプル DXF</span>
+        <button
+          type="button"
+          className="tb-btn"
+          onClick={onCreateSampleDxf}
+          title="RC造 1階平面図（DXF）・仕上表/建具表（CSV）・設計メモ（MD）のサンプル一式を作成"
+        >
+          <span>+ サンプル図面</span>
         </button>
       </div>
 

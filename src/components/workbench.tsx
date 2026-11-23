@@ -20,7 +20,7 @@ import type {
 } from "@/kernel/agent/types";
 import { BrowserZumenAssetLoader } from "@/kernel/drawing/assets";
 import { BrowserZumenEngineFactory } from "@/kernel/drawing/engine";
-import { buildSamplePlanDxf } from "@/kernel/drawing/sample-dxf";
+import { buildSampleWorkspaceFiles, SAMPLE_DRAWING_PATH } from "@/kernel/drawing/sample-dxf";
 import type {
   CheckProfileMeta,
   DrawingCheckReport,
@@ -487,11 +487,15 @@ export function Workbench() {
 
   const handleCreateSampleDxf = async () => {
     if (!kernel) return;
-    const samplePath = "sample-plan.dxf";
-    await kernel.fs.writeBytes(samplePath, buildSamplePlanDxf(), { create: true });
+    const files = buildSampleWorkspaceFiles();
+    for (const [relPath, bytes] of Object.entries(files)) {
+      await kernel.fs.writeBytes(relPath, bytes, { create: true });
+    }
     await refreshFiles(kernel);
-    await openFileTab(kernel, samplePath);
-    notify("サンプル図面「sample-plan.dxf」を作成して開きました。");
+    await openFileTab(kernel, SAMPLE_DRAWING_PATH);
+    notify(
+      `サンプル一式（${Object.keys(files).join("・")}）を作成し、${SAMPLE_DRAWING_PATH} を開きました。`,
+    );
   };
 
   const handleDropFiles = async (e: React.DragEvent) => {
@@ -883,14 +887,14 @@ export function Workbench() {
               <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>
                 Chrome 内で図面をそのまま読み・描き・直す
               </div>
-              <p style={{ margin: 0, maxWidth: 460, lineHeight: 1.7 }}>
+              <p style={{ margin: 0, maxWidth: 480, lineHeight: 1.7 }}>
                 DXF・DWG・JWW・SXF・CSV/TSV/XLSX・テキストファイルをここへドラッグ＆ドロップするか、
-                上の「フォルダーを開く」（Chrome ローカルフォルダー）または「+ サンプル
-                DXF」から始められます。
+                上の「フォルダーを開く」（Chrome ローカルフォルダー）または「+
+                サンプル図面」から始められます。
               </p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
                 <button type="button" className="btn btn-accent" onClick={handleCreateSampleDxf}>
-                  + サンプル DXF を作成して開く
+                  + サンプル図面一式（1階平面図・仕上表）を開く
                 </button>
                 {fsaSupported && (
                   <button type="button" className="btn" onClick={handleOpenLocalFolder}>

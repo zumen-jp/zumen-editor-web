@@ -386,6 +386,13 @@ export class DrawingDocumentManager {
   ): Promise<EntityListResult> {
     const entry = await this.requireOpen(rawPath);
     return this.enqueue(entry, async () => {
+      // zumen の entities.layers は公開 ID を要求するため、レイヤ名が渡された場合も ID へ解決する。
+      const resolvedLayers = query?.layers?.map((raw) => {
+        const byId = entry.tables.layers.find((l) => l.id === raw);
+        if (byId) return byId.id;
+        const byName = entry.tables.layers.find((l) => l.name === raw);
+        return byName ? byName.id : raw;
+      });
       const res = await entry.session.call({
         v: 1,
         op: "entities",
@@ -393,7 +400,7 @@ export class DrawingDocumentManager {
         fields: ENTITY_FIELDS,
         ...(query?.place ? { place: query.place } : {}),
         ...(query?.ids ? { ids: query.ids } : {}),
-        ...(query?.layers ? { layers: query.layers } : {}),
+        ...(resolvedLayers ? { layers: resolvedLayers } : {}),
         ...(query?.kinds ? { kinds: query.kinds } : {}),
         ...(query?.region ? { region: query.region } : {}),
         offset: query?.offset ?? 0,

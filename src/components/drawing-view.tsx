@@ -100,10 +100,17 @@ export function DrawingView({
     }
   }, [viewer, toolMode]);
 
-  // シーン投入
+  // シーン投入（viewer 再生成時も必ずフィットさせ、初回描画漏れを防ぐ）
   useEffect(() => {
     if (!viewer || !sceneBundle) return;
+    let rafId: number | null = null;
     try {
+      if (canvasEl) {
+        const rect = canvasEl.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          viewer.resize(rect.width, rect.height, Math.min(window.devicePixelRatio || 1, 2));
+        }
+      }
       const parsedScene = readScene(sceneBundle.blob);
       viewer.setScene({
         scene: parsedScene,
@@ -117,12 +124,38 @@ export function DrawingView({
       const fitKey = `${sceneBundle.path}:${sceneBundle.place}`;
       if (fittedKeyRef.current !== fitKey) {
         fittedKeyRef.current = fitKey;
-        viewer.fit(32);
+        viewer.fit(20);
+        rafId = requestAnimationFrame(() => {
+          try {
+            if (canvasEl) {
+              const rect = canvasEl.getBoundingClientRect();
+              if (rect.width > 0 && rect.height > 0) {
+                viewer.resize(rect.width, rect.height, Math.min(window.devicePixelRatio || 1, 2));
+              }
+            }
+            viewer.fit(20);
+            viewer.invalidate();
+          } catch {
+            // ignore
+          }
+        });
+      } else {
+        viewer.invalidate();
       }
     } catch (err) {
       setWebgpuError(err instanceof Error ? err.message : "シーンを描画できませんでした。");
     }
-  }, [viewer, sceneBundle]);
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [viewer, canvasEl, sceneBundle]);
+
+  // viewer が再生成されたとき（用紙色切替など）はフィット状態をリセット
+  useEffect(() => {
+    if (!viewer) {
+      fittedKeyRef.current = "";
+    }
+  }, [viewer]);
 
   // 非表示レイヤ反映
   useEffect(() => {

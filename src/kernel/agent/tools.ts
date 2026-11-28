@@ -605,12 +605,22 @@ export function createBrowserAgentTools(kernel: BrowserKernel, callbacks: AgentT
 
     defineAgentTool({
       name: "action_propose",
-      description:
+      description: [
         "境界操作（新規 DXF 作成・図面保存・DXF/SVG/PNG 書き出し・フォルダー作成・名前変更・削除・文字コード変換）の確認の札をチャットに出す。実行は利用者のみ。",
+        "args は kind ごとに次のキーだけを受け付け、それ以外のキーは拒否する。パスはすべて作業フォルダーからの相対パス。",
+        "create_drawing: { path（.dxf）, unit?: millimeter | meter }",
+        "save_drawing: { path }",
+        "export_drawing: { path, targetPath, format: dxf | svg | png }（targetPath の拡張子は format と一致させる）",
+        "create_folder: { path }",
+        "rename_entry: { path, to }",
+        "delete_entry: { path }",
+        "convert_encoding: { path, encoding?: utf-8 | shift_jis | utf-16le | utf-16be, eol?: lf | crlf, bom?: boolean }（1 つ以上指定）",
+        "札には、この args から組み立てた実行内容がそのまま表示される。保存の競合を無視した上書きは利用者だけが札の上で選べるため、指定できない。",
+      ].join("\n"),
       schema: z.object({
         kind: z.enum(ACTION_KINDS),
-        summary: z.string().min(1),
-        args: z.record(z.string(), z.unknown()),
+        summary: z.string().min(1).describe("なぜこの操作が必要かの簡潔な説明"),
+        args: z.record(z.string(), z.unknown()).describe("kind ごとの引数（説明文の一覧に従う）"),
       }),
       execute: async (input) => {
         try {
@@ -624,6 +634,7 @@ export function createBrowserAgentTools(kernel: BrowserKernel, callbacks: AgentT
             actionId: proposal.id,
             kind: proposal.kind,
             status: proposal.status,
+            details: proposal.details,
             note: "確認の札をチャットに出しました。利用者が実行または却下します。",
           });
         } catch (err) {

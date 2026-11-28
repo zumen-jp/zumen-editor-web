@@ -6,9 +6,10 @@ import { OpfsBackupStore } from "../fs/opfs-fs";
 import { extensionOf, isProtectedDrawingOrBimPath } from "../fs/paths";
 import { searchWorkspaceText } from "../fs/search";
 import type { Eol, TextEncoding, TextFormat } from "../fs/text-codec";
-import type { TextChangeRecord, WorkspaceFs } from "../fs/types";
+import { type TextChangeRecord, WorkspaceConflictError, type WorkspaceFs } from "../fs/types";
 import { parseSpreadsheetBytes } from "../sheet/reader";
 import { getTextChangeRecord, saveTextChangeRecord } from "../storage/idb";
+import { describeActionRequest, validateActionArgs } from "./action-args";
 import { guardTextWriteTarget, guardWorkspacePath } from "./guard";
 import {
   ACTION_LABELS,
@@ -91,18 +92,18 @@ export class BrowserKernel {
     return this.actions.get(id);
   }
 
-  /** エージェント用: 境界操作（commit 分類）の確認の札を発行する。実行は行わない。 */
-  proposeAction(params: {
-    kind: ActionKind;
-    summary: string;
-    args: Record<string, unknown>;
-  }): ActionProposal {
+  /**
+   * エージェント用: 境界操作（commit 分類）の確認の札を発行する。実行は行わない。
+   * 引数は種別ごとに検証・正規化し、札に表示する明細と実行に使う値を同じものにする。
+   */
+  proposeAction(params: { kind: ActionKind; summary: string; args: unknown }): ActionProposal {
+    const request = validateActionArgs(params.kind, params.args);
     const proposal: ActionProposal = {
+      ...request,
       id: crypto.randomUUID(),
-      kind: params.kind,
-      title: ACTION_LABELS[params.kind],
+      title: ACTION_LABELS[request.kind],
       summary: params.summary,
-      params: params.args,
+      details: describeActionRequest(request),
       status: "pending",
       createdAt: Date.now(),
     };
@@ -111,8 +112,15 @@ export class BrowserKernel {
     return proposal;
   }
 
-  /** 人間専用: 確認の札を実行する。 */
-  async executeAction(actor: Actor, id: string): Promise<ActionProposal> {
+  /**
+   * 人間専用: 確認の札を実行する。
+   * `force` は、保存の競合が札に示された後に利用者が選んだ場合だけ受け付ける。
+   */
+  async executeAction(
+    actor: Actor,
+    id: string,
+    options?: { force?: boolean },
+  ): Promise<ActionProposal> {
     if (actor !== "human") {
       throw new OperationError("forbidden", "確認の札を実行できるのは利用者だけです。");
     }
@@ -121,14 +129,19 @@ export class BrowserKernel {
     if (action.status !== "pending") {
       throw new OperationError("conflict", "この確認の札はすでに処理済みです。");
     }
+    const force = options?.force === true;
+    if (force && !(action.kind === "save_drawing" && action.conflict === true)) {
+      throw new OperationError(
+        "bad_request",
+        "競合を無視した上書きは、保存の競合が示された確認の札でだけ選べます。",
+      );
+    }
 
     try {
-      const p = action.params;
       let resultMessage = "実行しました。";
       switch (action.kind) {
         case "create_drawing": {
-          const target = guardWorkspacePath(String(p.path ?? ""));
-          const unit = p.unit === "meter" ? "meter" : "millimeter";
+          const { path: target, unit } = action.params;
           await this.drawings.createNewDxf(target, unit);
           this.viewBridge.notifyFileChanged(target);
           this.viewBridge.dispatchViewCommand({ type: "open", path: target });
@@ -136,38 +149,37 @@ export class BrowserKernel {
           break;
         }
         case "save_drawing": {
-          const target = guardWorkspacePath(String(p.path ?? ""));
-          await this.drawings.save(target, { force: p.force === true });
+          const target = action.params.path;
+          await this.drawings.save(target, { force });
           this.viewBridge.notifyFileChanged(target);
-          resultMessage = `図面「${target}」を上書き保存しました（直前ファイルを OPFS に控え保存）。`;
+          resultMessage = force
+            ? `外での変更を破棄して、図面「${target}」を上書き保存しました（直前ファイルを OPFS に控え保存）。`
+            : `図面「${target}」を上書き保存しました（直前ファイルを OPFS に控え保存）。`;
           break;
         }
         case "export_drawing": {
-          const source = guardWorkspacePath(String(p.path ?? ""));
-          const target = guardWorkspacePath(String(p.targetPath ?? ""));
-          const format = p.format === "svg" || p.format === "png" ? p.format : ("dxf" as const);
+          const { path: source, targetPath: target, format } = action.params;
           const out = await this.drawings.exportDrawing(source, target, format);
           this.viewBridge.notifyFileChanged(out.targetPath);
           resultMessage = `「${out.targetPath}」（${out.bytes.toLocaleString()} B）へ書き出しました。`;
           break;
         }
         case "create_folder": {
-          const dir = guardWorkspacePath(String(p.path ?? ""));
+          const dir = action.params.path;
           await this.fs.mkdir(dir);
           this.viewBridge.notifyFileChanged(dir);
           resultMessage = `フォルダー「${dir}」を作成しました。`;
           break;
         }
         case "rename_entry": {
-          const from = guardWorkspacePath(String(p.path ?? ""));
-          const to = guardWorkspacePath(String(p.to ?? ""));
+          const { path: from, to } = action.params;
           await this.fs.renameEntry(from, to);
           this.viewBridge.notifyFileChanged(to);
           resultMessage = `「${from}」を「${to}」へ変更しました。`;
           break;
         }
         case "delete_entry": {
-          const target = guardWorkspacePath(String(p.path ?? ""));
+          const target = action.params.path;
           const stat = await this.fs.stat(target);
           if (stat.kind === "file") {
             const { bytes } = await this.fs.readBytes(target);
@@ -179,12 +191,12 @@ export class BrowserKernel {
           break;
         }
         case "convert_encoding": {
-          const target = guardTextWriteTarget(String(p.path ?? ""));
+          const { path: target, encoding, eol, bom } = action.params;
           const { decoded, stat } = await this.fs.readText(target);
           const format: TextFormat = {
-            encoding: (p.encoding as TextEncoding | undefined) ?? decoded.encoding,
-            eol: (p.eol as Eol | undefined) ?? decoded.eol,
-            bom: typeof p.bom === "boolean" ? p.bom : decoded.bom,
+            encoding: encoding ?? decoded.encoding,
+            eol: eol ?? decoded.eol,
+            bom: bom ?? decoded.bom,
           };
           await this.fs.writeText(target, decoded.text, format, {
             expectedVersion: stat.version,
@@ -196,9 +208,19 @@ export class BrowserKernel {
       }
       action.status = "executed";
       action.resultMessage = resultMessage;
+      delete action.conflict;
+      delete action.errorMessage;
       this.emitActions();
       return action;
     } catch (error) {
+      if (action.kind === "save_drawing" && error instanceof WorkspaceConflictError) {
+        // 競合は失敗として閉じず、札の上で利用者に選ばせる（黙って上書きも、黙って諦めもしない）。
+        const message = `「${action.params.path}」は開いた後に外で変更されています。上書きすると、外で行われた変更は失われます。`;
+        action.conflict = true;
+        action.errorMessage = message;
+        this.emitActions();
+        throw new OperationError("conflict", message);
+      }
       action.status = "failed";
       action.errorMessage = error instanceof Error ? error.message : String(error);
       this.emitActions();

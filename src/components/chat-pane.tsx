@@ -49,7 +49,7 @@ type ChatPaneProps = {
   onAnswerQuestion: (questionId: string, answer: QuestionAnswer) => void;
   onApplyProposal: (path: string, proposalId: string) => void;
   onDismissProposal: (path: string, proposalId: string) => void;
-  onExecuteAction: (actionId: string) => void;
+  onExecuteAction: (actionId: string, options?: { force?: boolean }) => void;
   onDismissAction: (actionId: string) => void;
   onRevertTextChange: (changeId: string) => void;
   onOpenFile: (path: string) => void;
@@ -320,7 +320,7 @@ function TurnItemView(props: {
   actionsById: ReadonlyMap<string, ActionProposal>;
   onApplyProposal: (path: string, proposalId: string) => void;
   onDismissProposal: (path: string, proposalId: string) => void;
-  onExecuteAction: (actionId: string) => void;
+  onExecuteAction: (actionId: string, options?: { force?: boolean }) => void;
   onDismissAction: (actionId: string) => void;
   onRevertTextChange: (changeId: string) => void;
   onOpenFile: (path: string) => void;
@@ -351,7 +351,7 @@ function ToolCard({
   actionsById: ReadonlyMap<string, ActionProposal>;
   onApplyProposal: (path: string, proposalId: string) => void;
   onDismissProposal: (path: string, proposalId: string) => void;
-  onExecuteAction: (actionId: string) => void;
+  onExecuteAction: (actionId: string, options?: { force?: boolean }) => void;
   onDismissAction: (actionId: string) => void;
   onRevertTextChange: (changeId: string) => void;
   onOpenFile: (path: string) => void;
@@ -472,7 +472,20 @@ function ToolCard({
                     : "失敗"}
             </span>
           </div>
-          <p style={{ margin: "6px 0 0", lineHeight: 1.5 }}>{action.summary}</p>
+          {/* 実行内容はカーネルが実引数から組み立てた明細。旧い保存済みの札には無い場合がある。 */}
+          {(action.details ?? []).length > 0 && (
+            <dl className="action-details">
+              {action.details.map((d) => (
+                <div key={d.label}>
+                  <dt>{d.label}</dt>
+                  <dd>{d.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          <p className="action-agent-note">
+            <span>エージェントの説明:</span> {action.summary}
+          </p>
           {action.resultMessage && (
             <div style={{ marginTop: 4, color: "#15803d", fontSize: 11.5 }}>
               <CheckCircle2 size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />
@@ -486,14 +499,35 @@ function ToolCard({
           )}
           {action.status === "pending" && (
             <div className="card-actions">
-              <button
-                type="button"
-                className="btn btn-ok"
-                onClick={() => onExecuteAction(action.id)}
-              >
-                <Check size={13} />
-                <span>実行する</span>
-              </button>
+              {action.conflict ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-ok"
+                    onClick={() => onExecuteAction(action.id)}
+                  >
+                    <RotateCcw size={13} />
+                    <span>もう一度試す</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => onExecuteAction(action.id, { force: true })}
+                  >
+                    <AlertCircle size={13} />
+                    <span>外の変更を破棄して上書き</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-ok"
+                  onClick={() => onExecuteAction(action.id)}
+                >
+                  <Check size={13} />
+                  <span>実行する</span>
+                </button>
+              )}
               <button type="button" className="btn" onClick={() => onDismissAction(action.id)}>
                 退ける
               </button>

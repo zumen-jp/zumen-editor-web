@@ -392,6 +392,46 @@ button:disabled {
   background: var(--warn-soft);
 }
 
+.action-details {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.action-details > div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.action-details dt {
+  flex: 0 0 5.5em;
+  color: #475569;
+}
+
+.action-details dd {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.action-agent-note {
+  margin: 6px 0 0;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.action-agent-note > span {
+  font-size: 11px;
+}
+
 .card-actions {
   display: flex;
   align-items: center;

@@ -157,6 +157,50 @@ test("実 zumen WASM で図面の開閉・シーン・PNG圧縮・計測・照�
     const afterSave = await kernel.drawings.open(SAMPLE_DRAWING_PATH, { fresh: true });
     assert.equal(afterSave.dirty, false);
     assert.equal(afterSave.hash, applied.hash);
+
+    // 8. 確認の札: 実引数の明細・force の拒否・保存の競合は利用者だけが上書きを選べる
+    assert.deepEqual(saveCard.details, [{ label: "上書き先", value: SAMPLE_DRAWING_PATH }]);
+    assert.throws(
+      () =>
+        kernel.proposeAction({
+          kind: "save_drawing",
+          summary: "保存",
+          args: { path: SAMPLE_DRAWING_PATH, force: true },
+        }),
+      /force は指定できません/,
+    );
+
+    const conflictCard = kernel.proposeAction({
+      kind: "save_drawing",
+      summary: "保存",
+      args: { path: SAMPLE_DRAWING_PATH },
+    });
+    // 競合が示される前は、利用者であっても force を選べない
+    await assert.rejects(
+      () => kernel.executeAction("human", conflictCard.id, { force: true }),
+      /競合が示された確認の札でだけ/,
+    );
+
+    // 外部アプリによる書き換えを模擬する（内容は同じでも版が変わる）
+    const external = await memFs.readBytes(SAMPLE_DRAWING_PATH);
+    await memFs.writeBytes(SAMPLE_DRAWING_PATH, external.bytes);
+
+    await assert.rejects(
+      () => kernel.executeAction("human", conflictCard.id),
+      /外で変更されています/,
+    );
+    assert.equal(conflictCard.status, "pending", "競合では札を閉じず、利用者の判断を待つ");
+    assert.equal(conflictCard.conflict, true);
+    assert.match(conflictCard.errorMessage ?? "", /外で行われた変更は失われます/);
+
+    await assert.rejects(() => kernel.executeAction("agent", conflictCard.id, { force: true }));
+    assert.equal(conflictCard.status, "pending");
+
+    const forced = await kernel.executeAction("human", conflictCard.id, { force: true });
+    assert.equal(forced.status, "executed");
+    assert.equal(forced.conflict, undefined);
+    assert.equal(forced.errorMessage, undefined);
+    assert.match(forced.resultMessage ?? "", /外での変更を破棄して/);
   } finally {
     await kernel.dispose();
   }

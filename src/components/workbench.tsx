@@ -793,10 +793,10 @@ export function Workbench() {
                 if (!kernel) return;
                 await kernel.drawings.dismissProposal(path, proposalId);
               }}
-              onExecuteAction={async (actionId) => {
+              onExecuteAction={async (actionId, options) => {
                 if (!kernel) return;
                 try {
-                  const done = await kernel.executeAction("human", actionId);
+                  const done = await kernel.executeAction("human", actionId, options);
                   notify(done.resultMessage ?? "確認の札を実行しました。");
                 } catch (err) {
                   notify(err instanceof Error ? err.message : "操作を実行できませんでした。");

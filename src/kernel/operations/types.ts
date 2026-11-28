@@ -1,3 +1,5 @@
+import type { Eol, TextEncoding } from "../fs/text-codec";
+
 export type Actor = "human" | "agent";
 
 export type OperationCategory = "read" | "view" | "edit" | "commit";
@@ -26,13 +28,34 @@ export const ACTION_LABELS: Record<ActionKind, string> = {
 
 export type ActionProposalStatus = "pending" | "executed" | "dismissed" | "failed";
 
-export type ActionProposal = {
+/** 種別ごとの検証・正規化済み引数。実行時はこの値だけを使う。 */
+export type ActionParamsByKind = {
+  create_drawing: { path: string; unit: "millimeter" | "meter" };
+  save_drawing: { path: string };
+  export_drawing: { path: string; targetPath: string; format: "dxf" | "svg" | "png" };
+  create_folder: { path: string };
+  rename_entry: { path: string; to: string };
+  delete_entry: { path: string };
+  convert_encoding: { path: string; encoding?: TextEncoding; eol?: Eol; bom?: boolean };
+};
+
+export type ActionRequest = {
+  [K in ActionKind]: { kind: K; params: ActionParamsByKind[K] };
+}[ActionKind];
+
+/** 札に表示する実行内容の 1 行。 */
+export type ActionDetail = { label: string; value: string };
+
+export type ActionProposal = ActionRequest & {
   id: string;
-  kind: ActionKind;
   title: string;
+  /** エージェントが書いた説明。実行内容の根拠にはしない。 */
   summary: string;
-  params: Record<string, unknown>;
+  /** 実行時に使う値からカーネルが組み立てた表示用の明細。 */
+  details: ActionDetail[];
   status: ActionProposalStatus;
+  /** 保存先が外で変更されており、利用者の判断を待っている。 */
+  conflict?: boolean;
   createdAt: number;
   resultMessage?: string;
   errorMessage?: string;
